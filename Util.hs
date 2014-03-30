@@ -13,11 +13,11 @@ import qualified Data.Text           as T
 
 fieldFixer :: String -> String
 fieldFixer s = if s == "over_18"
-	then s
-	else toSnakeCase $ removeUnderscore s where
-    	removeUnderscore = filter (/= '_')
+    then s
+    else toSnakeCase $ removeUnderscore s where
+        removeUnderscore = filter (/= '_')
         toSnakeCase = foldr (\c acc -> if isUpper c
-        	then '_' : toLower c : acc
+            then '_' : toLower c : acc
             else c : acc) ""
 
 tagModifier :: String -> String
@@ -30,6 +30,6 @@ userAgent = "https://github.com/MarkJr94/sleuth"
 
 getAtMe :: Value -> Value
 getAtMe (Object o) = case HS.lookup (T.pack "data") o of
-	Just v -> v
-	_ -> error "No data Brodo!"
+    Just v -> v
+    _ -> error "No data Brodo!"
 getAtMe _ = error "No data Brodo!"

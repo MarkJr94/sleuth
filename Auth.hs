@@ -1,10 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Auth( SessionState,
-	login,
-	aboutMe,
-	pushCookie,
-	logout) where
+    login,
+    aboutMe,
+    pushCookie,
+    logout) where
 
 
 
@@ -36,28 +36,28 @@ pushCookie cs = state $ const ((), cs)
 
 login :: String  -> String -> IO [Cookie]
 login user pass = let bodyFunc :: Request -> Request;
-					  bodyFunc = urlEncodedBody
-			      		[("user", BU.fromString user), ("passwd", BU.fromString pass), ("api_type", "json"), ("rem", "false") ]
-	in do
-		request <- fmap (addUAString . bodyFunc)
-			(parseUrl $ "http://www.reddit.com/api/login/" ++ user)
-		fmap (destroyCookieJar . responseCookieJar)
-			(withManager $ httpLbs request)
+                      bodyFunc = urlEncodedBody
+                        [("user", BU.fromString user), ("passwd", BU.fromString pass), ("api_type", "json"), ("rem", "false") ]
+    in do
+        request <- fmap (addUAString . bodyFunc)
+            (parseUrl $ "http://www.reddit.com/api/login/" ++ user)
+        fmap (destroyCookieJar . responseCookieJar)
+            (withManager $ httpLbs request)
 
 addUAString :: Request -> Request
 addUAString request = request { requestHeaders = fixedHeaders } where
-	oldHeaders = requestHeaders request
-	fixedHeaders = (hUserAgent, userAgent)
-		: filter (\(name, _) -> name /= hUserAgent) oldHeaders
+    oldHeaders = requestHeaders request
+    fixedHeaders = (hUserAgent, userAgent)
+        : filter (\(name, _) -> name /= hUserAgent) oldHeaders
 
 aboutMe :: SessionState (Either String Account)
 aboutMe = do
-	req' <- fmap addUAString (parseUrl "http://reddit.com/api/me.json")
-	cs <- get
-	let req = req' { cookieJar = Just newJar } where
-		newJar = createCookieJar cs
-	jVal <- fmap (eitherDecode . responseBody) (withManager $ httpLbs req)
-	return $ jVal >>= (\x -> parseEither (x .:) (T.pack "data"))
+    req' <- fmap addUAString (parseUrl "http://reddit.com/api/me.json")
+    cs <- get
+    let req = req' { cookieJar = Just newJar } where
+        newJar = createCookieJar cs
+    jVal <- fmap (eitherDecode . responseBody) (withManager $ httpLbs req)
+    return $ jVal >>= (\x -> parseEither (x .:) (T.pack "data"))
 
 logout :: Int
 logout = 2
