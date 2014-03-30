@@ -3,7 +3,7 @@
 
 name:                sleuth
 version:             0.1.0.0
-synopsis:            Checks user comments for similarity between users
+synopsis:            Reddit API wrapper for Haskell
 -- description:
 homepage:            www.github.com/MarkJr94/sleuth
 license:             BSD3

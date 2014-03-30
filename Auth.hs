@@ -26,7 +26,7 @@ import           RedditData
 type SessionState = StateT [Cookie] IO
 
 pushCookie :: [Cookie] -> SessionState ()
-pushCookie cs = state $ \_ -> ((), cs)
+pushCookie cs = state $ const ((), cs)
 
 --getCookie :: SessionState (Maybe Cookie)
 --getCookie = state $ \c -> (c, c)
@@ -41,9 +41,8 @@ login user pass = let bodyFunc :: Request -> Request;
 	in do
 		request <- fmap (addUAString . bodyFunc)
 			(parseUrl $ "http://www.reddit.com/api/login/" ++ user)
-		cookies <- fmap (destroyCookieJar . responseCookieJar)
+		fmap (destroyCookieJar . responseCookieJar)
 			(withManager $ httpLbs request)
-		return cookies
 
 addUAString :: Request -> Request
 addUAString request = request { requestHeaders = fixedHeaders } where
@@ -53,7 +52,7 @@ addUAString request = request { requestHeaders = fixedHeaders } where
 
 aboutMe :: SessionState (Either String Account)
 aboutMe = do
-	req' <- fmap addUAString (parseUrl $ "http://reddit.com/api/me.json")
+	req' <- fmap addUAString (parseUrl "http://reddit.com/api/me.json")
 	cs <- get
 	let req = req' { cookieJar = Just newJar } where
 		newJar = createCookieJar cs
