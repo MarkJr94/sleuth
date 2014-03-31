@@ -21,7 +21,7 @@ import           Network.HTTP.Conduit
 import           Network.HTTP.Types
 import           Util
 
-import           RedditData
+import           RedditData.Account
 
 type SessionState = StateT [Cookie] IO
 
@@ -43,12 +43,6 @@ login user pass = let bodyFunc :: Request -> Request;
             (parseUrl $ "http://www.reddit.com/api/login/" ++ user)
         fmap (destroyCookieJar . responseCookieJar)
             (withManager $ httpLbs request)
-
-addUAString :: Request -> Request
-addUAString request = request { requestHeaders = fixedHeaders } where
-    oldHeaders = requestHeaders request
-    fixedHeaders = (hUserAgent, userAgent)
-        : filter (\(name, _) -> name /= hUserAgent) oldHeaders
 
 aboutMe :: SessionState (Either String Account)
 aboutMe = do
