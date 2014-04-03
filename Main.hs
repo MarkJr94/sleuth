@@ -16,6 +16,7 @@ import qualified Data.Text                  as T
 import           Network.HTTP.Conduit
 import           RedditData.Account                 
 import           RedditData.Comment as C         
+import qualified RedditData.Common as Co
 import           System.IO
 import           Text.Printf                (printf)
 import Util
@@ -42,22 +43,30 @@ aboutIO user = do
 main :: IO ()
 main = do
     about <- aboutIO "urdnot_rekt"
-    print about
+    case about of
+        Right _ -> print "Got `about` `urdnot_rekt` successfully"
+        _ -> return ()
 
-    [user, pass] <- sequence [getLine, getLine]
+    handle <- openFile "secrets.txt" ReadMode
+
+    [user, pass] <- sequence [hGetLine handle, hGetLine handle]
     --print (user, pass)
     cookies <- login user pass
     --print cookies
 
     me <- evalStateT aboutMe cookies
-    --print me
+    case me of
+        Right _ -> print "Got `aboutMe` successfully. (Means auth is good)"
+        _ -> return ()
 
-    commentVals' <- evalStateT (U.comments "Suppiluliuma_I") cookies
-    let commentVals = case commentVals' of
-                    Left err -> error err
-                    Right vals -> vals
-    sequence $ map print commentVals
-    let comments :: [Either String Comment];
-        comments = map (\x -> parseEither parseJSON x) commentVals
-    _ <- sequence $ map print comments
-    return ()
+    let th = (U.comments "Suppiluliuma_I" Co.New Co.DefaultAge) $$ sink
+    evalStateT th cookies
+
+sink :: (Sink (Either String [Comment]) SessionState ())
+sink = CL.mapM_ (\cs ->  do
+    liftIO $ do 
+        putStrLn "\n\n ENTER `y` to get next page\n"
+        l <- getLine
+        if l == "y"
+            then print cs
+            else return ())

@@ -18,7 +18,7 @@ data Comment = Comment {
 				, bannedBy :: Maybe String
 				, body :: String
 				, bodyHtml :: String
-				, edited :: Either Integer Bool
+				--, edited :: Maybe Integer
 				, gilded :: Int
 				, likes  :: Maybe Bool
 				, linkAuthor :: Maybe String

@@ -23,6 +23,7 @@ import           Util
 
 import           RedditData.Account
 
+
 type SessionState = StateT [Cookie] IO
 
 pushCookie :: [Cookie] -> SessionState ()
