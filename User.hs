@@ -60,12 +60,9 @@ whoa req' baseQuery after = do
             newQ = renderQuery False $  ("after", Just $ BU.fromString after)
                         : baseQuery
 
-    liftIO $ print $ queryString req
     jsonRes <- fmap (eitherDecode . responseBody) (withManager $ httpLbs req)
     let listing' :: Either String Co.Listing;
         listing' = jsonRes >>= (\x -> parseEither (x .:) (T.pack "data"))
-
-    liftIO $ print (fmap (Co.after) listing')
 
     let vs = fmap (\ls -> map Co.data_ $ Co.children ls) listing'
     let rets = case vs of
