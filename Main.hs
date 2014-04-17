@@ -1,5 +1,9 @@
-import           Auth                       
+module Main where
+
+import           Auth
+import           Control.Applicative
 import           Control.Monad.IO.Class
+import           Control.Monad.State
 import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.ByteString            as B
@@ -8,21 +12,18 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Lazy.UTF8  as LU
 import qualified Data.ByteString.UTF8       as BU
 import           Data.Conduit
-import qualified Data.Conduit.Binary        as CB
 import qualified Data.Conduit.List          as CL
 import qualified Data.HashMap.Strict        as HS
 import qualified Data.List                  as DL
 import qualified Data.Text                  as T
 import           Network.HTTP.Conduit
-import           RedditData.Account                 
-import           RedditData.Comment as C         
-import qualified RedditData.Common as Co
+import           RedditData.Account
+import           RedditData.Comment         as C
+import qualified RedditData.Common          as Co
 import           System.IO
 import           Text.Printf                (printf)
-import Util
-import Control.Applicative
-import Control.Monad.State
-import qualified User as U
+import qualified User                       as U
+import           Util
 
 add3 x y z = x + y + z
 x = Just 1
@@ -64,7 +65,7 @@ main = do
 
 sink :: (Sink (Either String [Comment]) SessionState ())
 sink = CL.mapM_ (\cs ->  do
-    liftIO $ do 
+    liftIO $ do
         putStrLn "\n\n ENTER `y` to get next page\n"
         l <- getLine
         if l == "y"
