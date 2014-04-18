@@ -51,23 +51,26 @@ main = do
     handle <- openFile "secrets.txt" ReadMode
 
     [user, pass] <- sequence [hGetLine handle, hGetLine handle]
-    --print (user, pass)
-    cookies <- login user pass
-    --print cookies
 
-    me <- evalStateT aboutMe cookies
-    case me of
-        Right _ -> print "Got `aboutMe` successfully. (Means auth is good)"
-        _ -> return ()
+    cookieJar <- login user pass
 
-    let th = (U.comments "Suppiluliuma_I" Co.New Co.DefaultAge) $$ sink
-    evalStateT th cookies
+    evalStateT thing cookieJar
 
-sink :: (Sink (Either String [Comment]) SessionState ())
-sink = CL.mapM_ (\cs ->  do
+--thing :: SessionState a
+thing = do
+    me <- aboutMe
+    comments <- U.comments "Suppiluliuma_I" Co.New Co.DefaultAge $$ CL.take 1
+    submitted <- U.submitted "Suppiluliuma_I" Co.New Co.DefaultAge $$ CL.take 1
+    liked <- U.liked "Suppiluliuma_I" $$ CL.take 1
+    
     liftIO $ do
-        putStrLn "\n\n ENTER `y` to get next page\n"
-        l <- getLine
-        if l == "y"
-            then print cs
-            else return ())
+        case me of
+            Right _ -> print "Got `aboutMe` successfully. (Means auth is good)"
+            _ -> return () 
+        putStrLn "\n"
+        print $ fmap head $ head comments
+        putStrLn "\n"
+        print $ fmap head $ head submitted
+        putStrLn "\n"
+        print $ fmap head $ head liked
+    return ()

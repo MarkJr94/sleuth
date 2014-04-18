@@ -4,7 +4,8 @@ module Auth( SessionState,
     login,
     aboutMe,
     pushCookie,
-    logout) where
+    logout,
+    auth) where
 
 import           Control.Applicative
 import           Control.Monad.State
@@ -22,9 +23,9 @@ import           Common
 import           RedditData.Account
 
 
-type SessionState = StateT [Cookie] IO
+type SessionState = StateT CookieJar IO
 
-pushCookie :: [Cookie] -> SessionState ()
+pushCookie :: CookieJar -> SessionState ()
 pushCookie cs = state $ const ((), cs)
 
 --getCookie :: SessionState (Maybe Cookie)
@@ -33,22 +34,32 @@ pushCookie cs = state $ const ((), cs)
 --extractCookie :: SessionState (Maybe Cookie)
 --extractCookie = state $ \c -> (c, Nothing)
 
-login :: String  -> String -> IO [Cookie]
+login :: String  -> String -> IO CookieJar
 login user pass = let bodyFunc :: Request -> Request;
                       bodyFunc = urlEncodedBody
                         [("user", BU.fromString user), ("passwd", BU.fromString pass), ("api_type", "json"), ("rem", "false") ]
     in do
         request <- fmap (addUAString . bodyFunc)
             (parseUrl $ "http://www.reddit.com/api/login/" ++ user)
-        fmap (destroyCookieJar . responseCookieJar)
+        fmap responseCookieJar
             (withManager $ httpLbs request)
+
+auth :: String  -> String -> SessionState ()
+auth user pass = let bodyFunc :: Request -> Request;
+                      bodyFunc = urlEncodedBody
+                        [("user", BU.fromString user), ("passwd", BU.fromString pass), ("api_type", "json"), ("rem", "false") ]
+    in do
+        request <- fmap (addUAString . bodyFunc)
+            (parseUrl $ "http://www.reddit.com/api/login/" ++ user)
+        cj <- fmap responseCookieJar
+            (withManager $ httpLbs request)
+        put cj
 
 aboutMe :: SessionState (Either String Account)
 aboutMe = do
     req' <- fmap addUAString (parseUrl "http://reddit.com/api/me.json")
     cs <- get
-    let req = req' { cookieJar = Just newJar } where
-        newJar = createCookieJar cs
+    let req = req' { cookieJar = Just cs }
     jVal <- fmap (eitherDecode . responseBody) (withManager $ httpLbs req)
     return $ jVal >>= (\x -> parseEither (x .:) (T.pack "data"))
 
