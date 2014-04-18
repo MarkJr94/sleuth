@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Util(fieldFixer,
+module Common(fieldFixer,
     tagModifier,
     userAgent,
     getAtMe,
@@ -8,10 +8,10 @@ module Util(fieldFixer,
     resultToEither) where
 
 import           Data.Aeson
-import qualified Data.ByteString     as B
+import qualified Data.ByteString      as B
 import           Data.Char
-import qualified Data.HashMap.Strict as HS
-import qualified Data.Text           as T
+import qualified Data.HashMap.Strict  as HS
+import qualified Data.Text            as T
 import           Network.HTTP.Conduit
 import           Network.HTTP.Types
 

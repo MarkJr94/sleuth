@@ -23,7 +23,7 @@ import           Auth
 import qualified RedditData.Common as Co
 import           RedditData.Account   
 import           RedditData.Comment   
-import           Util
+import           Common
  
 comments :: String -> Co.Popularity -> Co.Age -> Source (SessionState) (Either String [Comment])
 comments user pop age = 

@@ -6,8 +6,6 @@ module Auth( SessionState,
     pushCookie,
     logout) where
 
-
-
 import           Control.Applicative
 import           Control.Monad.State
 import           Data.Aeson
@@ -19,7 +17,7 @@ import           Data.Maybe           (fromJust)
 import qualified Data.Text            as T
 import           Network.HTTP.Conduit
 import           Network.HTTP.Types
-import           Util
+import           Common
 
 import           RedditData.Account
 

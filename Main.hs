@@ -1,6 +1,7 @@
 module Main where
 
 import           Auth
+import           Common
 import           Control.Applicative
 import           Control.Monad.IO.Class
 import           Control.Monad.State
@@ -23,7 +24,6 @@ import qualified RedditData.Common          as Co
 import           System.IO
 import           Text.Printf                (printf)
 import qualified User                       as U
-import           Util
 
 add3 x y z = x + y + z
 x = Just 1

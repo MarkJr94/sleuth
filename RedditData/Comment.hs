@@ -5,10 +5,10 @@ module RedditData.Comment (
     Comment
     ) where
 
+import           Common        (fieldFixer, tagModifier)
 import           Data.Aeson
 import           Data.Aeson.TH
 import           Data.Char
-import           Util          (fieldFixer, tagModifier)
 
 data Comment = Comment {
 				  approvedBy :: Maybe String

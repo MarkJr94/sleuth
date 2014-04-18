@@ -3,12 +3,12 @@
 
 module RedditData.Common  where
 
+import           Common              (fieldFixer)
 import           Control.Applicative
 import           Control.Monad.State
-import Data.Aeson
-import Data.Aeson.TH
-import Data.ByteString
-import Util (fieldFixer)
+import           Data.Aeson
+import           Data.Aeson.TH
+import           Data.ByteString
 
 data Thing = Thing {
 	id :: Maybe String

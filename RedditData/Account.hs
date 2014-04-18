@@ -5,10 +5,10 @@ module RedditData.Account (
     Account
     ) where
 
+import           Common        (fieldFixer, tagModifier)
 import           Data.Aeson
 import           Data.Aeson.TH
 import           Data.Char
-import           Util          (fieldFixer, tagModifier)
 
 data Account = Account {
              created          :: Integer
