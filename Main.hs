@@ -85,7 +85,6 @@ thing = do
         putStrLn $ TR.drawForest $ map ((\x -> case x of
             Left _ -> "[MORE HIDDEN]"
             Right x -> x ^. author) <$>) thread
-    return ()
 
 getRight x = case x of
     Left _ -> error "Left in getRight"
