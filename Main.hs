@@ -1,8 +1,11 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Main where
 
 import           Auth
 import           Common
 import           Control.Applicative
+import           Control.Lens
 import           Control.Monad.IO.Class
 import           Control.Monad.State
 import           Data.Aeson
@@ -17,13 +20,14 @@ import qualified Data.Conduit.List          as CL
 import qualified Data.HashMap.Strict        as HS
 import qualified Data.List                  as DL
 import qualified Data.Text                  as T
+import qualified Data.Tree                  as TR
 import           Network.HTTP.Conduit
-import           RedditData.Account
-import           RedditData.Comment         as C
-import qualified RedditData.Common          as Co
 import           System.IO
 import           Text.Printf                (printf)
+
+import           Types
 import qualified User                       as U
+import qualified Thread as Th
 
 add3 x y z = x + y + z
 x = Just 1
@@ -38,8 +42,10 @@ summed = getZipList $ add3 <$> ZipList vs <*> ZipList vs <*> ZipList vs
 aboutIO :: String -> IO (Either String Account)
 aboutIO user = do
     req <- parseUrl $ printf "http://www.reddit.com/user/%s/about.json" user
-    jVal <- fmap (eitherDecode . responseBody) $ withManager $ httpLbs req
-    return $ jVal >>= (\x -> parseEither (x .:) (T.pack "data"))
+    resp <- withManager $ httpLbs req
+    let body = responseBody resp
+    let jVal = eitherDecode body
+    return $ jVal >>= (\x -> parseEither (x .:) "data")
 
 main :: IO ()
 main = do
@@ -49,28 +55,38 @@ main = do
         _ -> return ()
 
     handle <- openFile "secrets.txt" ReadMode
-
     [user, pass] <- sequence [hGetLine handle, hGetLine handle]
+    print $ user ++ " " ++ pass
 
-    cookieJar <- login user pass
+    state <- login user pass
+    evalStateT thing state
 
-    evalStateT thing cookieJar
-
---thing :: SessionState a
+thing :: Reddit ()
 thing = do
     me <- aboutMe
-    comments <- U.comments "Suppiluliuma_I" Co.New Co.DefaultAge $$ CL.take 1
-    submitted <- U.submitted "Suppiluliuma_I" Co.New Co.DefaultAge $$ CL.take 1
+    comments <- U.comments "Suppiluliuma_I" New DefaultAge $$ CL.take 1
+    submitted <- U.submitted "Suppiluliuma_I" New DefaultAge $$ CL.take 1
     liked <- U.liked "Suppiluliuma_I" $$ CL.take 1
+    let sample = (head . getRight) $ head liked
+    thread <- Th.thread sample
+
     
     liftIO $ do
         case me of
             Right _ -> print "Got `aboutMe` successfully. (Means auth is good)"
             _ -> return () 
         putStrLn "\n"
-        print $ fmap head $ head comments
+        print $ head <$> head comments
         putStrLn "\n"
-        print $ fmap head $ head submitted
+        print $ head <$> head submitted
         putStrLn "\n"
-        print $ fmap head $ head liked
+        print $ head <$> head liked
+        putStrLn "\n"
+        putStrLn $ TR.drawForest $ map ((\x -> case x of
+            Left _ -> "[MORE HIDDEN]"
+            Right x -> x ^. author) <$>) thread
     return ()
+
+getRight x = case x of
+    Left _ -> error "Left in getRight"
+    Right x -> x

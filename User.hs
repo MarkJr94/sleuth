@@ -5,10 +5,11 @@ module User(
     , submitted
     , liked
     , disliked
-    , saved
-    , hidden) where
+    , saved_
+    , hidden_) where
 
 import           Control.Applicative
+import           Control.Lens
 import           Control.Monad.State
 import           Data.Aeson
 import           Data.Aeson.Types
@@ -25,140 +26,109 @@ import           Network.HTTP.Conduit
 import           Network.HTTP.Types
 
 import           Auth
-import qualified RedditData.Common as Co
-import           RedditData.Account   
-import           RedditData.Comment
-import           RedditData.Link as RL
+import           Types
+import qualified Types
 import           Common
  
-comments :: String -> Co.Popularity -> Co.Age -> Source (SessionState) (Either String [Comment])
+comments :: String -> Popularity -> Age -> Source Reddit (Either String [Comment])
 comments user pop age = 
     let first = do
-            req'' <- lift $ do
-                req' <- fmap addUAString 
-                    (parseUrl $ printf "http://reddit.com/user/%s/comments.json" user)
-                cs <- get
-                let dummy = req' { cookieJar = Just cs }
-                return dummy
-            let baseQ = [("sort", Just $ Co.formatPop pop), ("t", Just $ Co.formatAge age)]
+            req'' <- lift $ join (fmap fillRequest 
+                                    (parseUrl $
+                                        printf "http://reddit.com/user/%s/comments.json" user))
+            let baseQ = [("sort", Just $ formatPop pop), ("t", Just $ formatAge age)]
             let whoa' = whoa req'' baseQ
             yield (whoa', "")
-        second = do
-            awaitForever (\(whoa', after) -> do
-                (cms, after') <- liftIO $ whoa' after
-                case after' of
-                    Just after'' -> do
-                        yield cms
-                        leftover (whoa', after'')
-                        second
-                    Nothing -> return ())
+        second = awaitForever (\(whoa', after) -> do
+                    (cms, after') <- liftIO $ whoa' after
+                    case after' of
+                        Just after'' -> do
+                            yield cms
+                            leftover (whoa', after'')
+                            second
+                        Nothing -> return ())
     in
         first $= second
 
---gilded :: String -> Source (SessionState) (Either String [Comment])
---gilded user =
---    let first = do
---            req'' <- lift $ do
---                req' <- fmap addUAString 
---                    (parseUrl $ printf "http://reddit.com/user/%s/gilded.json" user)
---                cs <- get
---                let dummy = req' { cookieJar = Just cs }
---                return dummy
---            let whoa' = whoa req'' []
---            yield (whoa', "")
---        second = do
---            awaitForever (\(whoa', after) -> do
---                (cms, after') <- liftIO $ whoa' after
---                case after' of
---                    Just after'' -> do
---                        yield cms
---                        leftover (whoa', after'')
---                        second
---                    Nothing -> return ())
---    in
---        first $= second
-
-submitted :: String -> Co.Popularity -> Co.Age -> Source (SessionState) (Either String [Link])
+submitted :: String -> Popularity -> Age -> Source Reddit (Either String [Link])
 submitted user pop age = 
     let first = do
-            req'' <- lift $ do
-                req' <- fmap addUAString 
-                    (parseUrl $ printf "http://reddit.com/user/%s/submitted.json" user)
-                cs <- get
-                let dummy = req' { cookieJar = Just cs }
-                return dummy
-            let baseQ = [("sort", Just $ Co.formatPop pop), ("t", Just $ Co.formatAge age)]
+            req'' <- lift $ join (fmap fillRequest 
+                                        (parseUrl $ 
+                                            printf "http://reddit.com/user/%s/submitted.json" user))
+            let baseQ = [("sort", Just $ formatPop pop), ("t", Just $ formatAge age)]
             let whoa' = whoa req'' baseQ
             yield (whoa', "")
-        second = do
-            awaitForever (\(whoa', after) -> do
-                (cms, after') <- liftIO $ whoa' after
-                case after' of
-                    Just after'' -> do
-                        yield cms
-                        leftover (whoa', after'')
-                        second
-                    Nothing -> return ())
+        second = awaitForever (\(whoa', after) -> do
+                    (cms, after') <- liftIO $ whoa' after
+                    case after' of
+                        Just after'' -> do
+                            yield cms
+                            leftover (whoa', after'')
+                            second
+                        Nothing -> return ())
     in
         first $= second
 
-liked :: String -> Source (SessionState) (Either String [Link])
+liked :: String -> Source Reddit (Either String [Link])
 liked user = commonHelperLink url where
     url = printf "http://reddit.com/user/%s/liked.json" user
 
-disliked :: String -> Source (SessionState) (Either String [Link])
+disliked :: String -> Source Reddit (Either String [Link])
 disliked user = commonHelperLink url where
     url = printf "http://reddit.com/user/%s/disliked.json" user
 
-saved :: String -> Source (SessionState) (Either String [Link])
-saved user = commonHelperLink url where
+saved_ :: String -> Source Reddit (Either String [Link])
+saved_ user = commonHelperLink url where
     url = printf "http://reddit.com/user/%s/saved.json" user
 
-hidden :: String -> Source (SessionState) (Either String [Link])
-hidden user = commonHelperLink url where
+hidden_ :: String -> Source Reddit (Either String [Link])
+hidden_ user = commonHelperLink url where
     url = printf "http://reddit.com/user/%s/hidden.json" user
 
-commonHelperLink :: String -> Source (SessionState) (Either String [Link])
+commonHelperLink :: String -> Source Reddit (Either String [Link])
 commonHelperLink url = 
     let first = do
-            req'' <- lift $ do
-                req' <- fmap addUAString 
-                    (parseUrl url)
-                cs <- get
-                let dummy = req' { cookieJar = Just cs }
-                return dummy
+            req'' <- lift $ join (fmap fillRequest (parseUrl url))
             let whoa' = whoa req'' []
             yield (whoa', "")
-        second = do
-            awaitForever (\(whoa', after) -> do
-                (cms, after') <- liftIO $ whoa' after
-                case after' of
-                    Just after'' -> do
-                        yield cms
-                        leftover (whoa', after'')
-                        second
-                    Nothing -> return ())
+        second = awaitForever (\(whoa', after) -> do
+                    (cms, after') <- liftIO $ whoa' after
+                    case after' of
+                        Just after'' -> do
+                            yield cms
+                            leftover (whoa', after'')
+                            second
+                        Nothing -> return ())
     in
         first $= second
 
 whoa :: (FromJSON a) => Request -> Query -> String
      -> IO (Either String [a], Maybe String)
-whoa req' baseQuery after = do
+whoa req' baseQuery after' = do
     let req = req' { queryString = newQ } where
-            newQ = renderQuery False $  ("after", Just $ BU.fromString after)
+            newQ = renderQuery False $  ("after", Just $ BU.fromString after')
                         : baseQuery
 
     jsonRes <- fmap (eitherDecode . responseBody) (withManager $ httpLbs req)
-    let listing' :: Either String Co.Listing;
+    let listing' :: Either String Listing;
         listing' = jsonRes >>= (\x -> parseEither (x .:) (T.pack "data"))
 
-    let vs = fmap (\ls -> map Co.data_ $ Co.children ls) listing'
+    let vs = fmap (\ls -> map (^. data_) $ ls ^. Types.children) listing'
     let rets = case vs of
                     Left err -> Left err
-                    Right vs' -> sequence (map (resultToEither . fromJSON) vs')
-    return (rets, fixUp listing' >>= Co.after) where
-        fixUp (Right l) = case (Co.after l) of
-                            Just a -> Just l
+                    Right vs' -> mapM (resultToEither . fromJSON) vs'
+    return (rets, fixUp listing') where
+        fixUp (Right l) = case l ^. after of
+                            Just a -> l ^. after
                             Nothing -> Nothing
         fixUp (Left _) = Nothing
 
+
+addAuth :: Request -> Reddit Request
+addAuth req = do
+    cs <- get
+    return req {cookieJar = Just $ cs ^. jar}
+
+fillRequest :: Request -> Reddit Request
+fillRequest = addAuth . addUAString

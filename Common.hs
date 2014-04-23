@@ -1,19 +1,22 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Common(fieldFixer,
-    tagModifier,
+module Common(
+    thingFixer,
+    listingFixer,
+    fieldFixer,
+    accountFixer,
+    linkFixer,
+    commentFixer,
     userAgent,
-    getAtMe,
     addUAString,
     resultToEither) where
 
 import           Data.Aeson
 import qualified Data.ByteString      as B
 import           Data.Char
-import qualified Data.HashMap.Strict  as HS
-import qualified Data.Text            as T
 import           Network.HTTP.Conduit
 import           Network.HTTP.Types
+
 
 fieldFixer :: String -> String
 fieldFixer s = if s == "over_18"
@@ -24,19 +27,29 @@ fieldFixer s = if s == "over_18"
             then '_' : toLower c : acc
             else c : acc) ""
 
-tagModifier :: String -> String
-tagModifier s
-    | s == "Account" = "t2"
-    | otherwise = s
+genericFixer :: Int -> String -> String
+genericFixer n s = fieldFixer s' where
+    base = drop n s
+    newFirst = toLower $ head base
+    s' = newFirst : tail base
+
+linkFixer :: String -> String
+linkFixer = genericFixer 5
+
+commentFixer :: String -> String
+commentFixer = genericFixer 8
+
+accountFixer :: String -> String
+accountFixer = genericFixer 8
+
+thingFixer :: String -> String
+thingFixer = genericFixer 6
+
+listingFixer :: String -> String
+listingFixer = genericFixer 8
 
 userAgent :: B.ByteString
 userAgent = "https://github.com/MarkJr94/sleuth"
-
-getAtMe :: Value -> Value
-getAtMe (Object o) = case HS.lookup (T.pack "data") o of
-    Just v -> v
-    _ -> error "No data Brodo!"
-getAtMe _ = error "No data Brodo!"
 
 addUAString :: Request -> Request
 addUAString request = request { requestHeaders = fixedHeaders } where

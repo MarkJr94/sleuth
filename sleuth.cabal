@@ -17,5 +17,5 @@ cabal-version:       >=1.8
 
 executable sleuth
   main-is: Main.hs
-  other-modules: Common RedditData.Common RedditData.Account RedditData.Comment RedditData.Link Auth User
-  build-depends: base ==4.6.*, http-conduit >= 2.0, bytestring == 0.10.*, text >= 1.0, utf8-string >= 0.3.7, conduit >= 1, transformers, aeson >= 0.7, unordered-containers >= 0.2, http-types >= 0.8.3, mtl >= 2.1.2, monad-loops
+  other-modules: Common Types Auth User Thread
+  build-depends: base ==4.6.*, vector == 0.10.*, http-conduit >= 2.0, bytestring == 0.10.*, text >= 1.0, utf8-string >= 0.3.7, conduit >= 1, transformers, aeson >= 0.7, unordered-containers >= 0.2, http-types >= 0.8.3, mtl >= 2.1.2, lens == 4.1.*, containers == 0.5.*
