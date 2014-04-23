@@ -37,13 +37,13 @@ login user pass = let bodyFunc :: Request -> Request;
                         Nothing -> error "No modhash given on login!"
         return RedditState { _redditstateJar = cookies, _redditstateModhash = mhash'}
 
-aboutMe :: Reddit (Either String Account)
+aboutMe :: Reddit Account
 aboutMe = do
     req' <- fmap addUAString (parseUrl "http://reddit.com/api/me.json")
     rs <- get
     let req = req' { cookieJar = Just $ rs ^. jar }
     jVal <- fmap (eitherDecode . responseBody) (withManager $ httpLbs req)
-    return $ jVal >>= (\x -> parseEither (x .:) (T.pack "data"))
+    return $ eitherToException $ jVal >>= (\x -> parseEither (x .:) (T.pack "data"))
 
 logout :: Int
 logout = 2

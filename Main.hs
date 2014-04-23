@@ -17,6 +17,7 @@ import qualified Data.ByteString.Lazy.UTF8  as LU
 import qualified Data.ByteString.UTF8       as BU
 import           Data.Conduit
 import qualified Data.Conduit.List          as CL
+import qualified Data.Foldable              as F
 import qualified Data.HashMap.Strict        as HS
 import qualified Data.List                  as DL
 import qualified Data.Text                  as T
@@ -25,6 +26,7 @@ import           Network.HTTP.Conduit
 import           System.IO
 import           Text.Printf                (printf)
 
+import qualified Types
 import           Types
 import qualified User                       as U
 import qualified Thread as Th
@@ -39,20 +41,18 @@ summed :: [Int]
 summed = getZipList $ add3 <$> ZipList vs <*> ZipList vs <*> ZipList vs
 
 
-aboutIO :: String -> IO (Either String Account)
+aboutIO :: String -> IO Account
 aboutIO user = do
     req <- parseUrl $ printf "http://www.reddit.com/user/%s/about.json" user
     resp <- withManager $ httpLbs req
     let body = responseBody resp
     let jVal = eitherDecode body
-    return $ jVal >>= (\x -> parseEither (x .:) "data")
+    return $ eitherToException $ jVal >>= (\x -> parseEither (x .:) "data")
 
 main :: IO ()
 main = do
     about <- aboutIO "urdnot_rekt"
-    case about of
-        Right _ -> print "Got `about` `urdnot_rekt` successfully"
-        _ -> return ()
+    print "Got `about` `urdnot_rekt` successfully"
 
     handle <- openFile "secrets.txt" ReadMode
     [user, pass] <- sequence [hGetLine handle, hGetLine handle]
@@ -64,27 +64,29 @@ main = do
 thing :: Reddit ()
 thing = do
     me <- aboutMe
+    liftIO $ print "Got `aboutMe` successfully. (Means auth is good)"
     comments <- U.comments "Suppiluliuma_I" New DefaultAge $$ CL.take 1
     submitted <- U.submitted "Suppiluliuma_I" New DefaultAge $$ CL.take 1
     liked <- U.liked "Suppiluliuma_I" $$ CL.take 1
-    let sample = (head . getRight) $ head liked
+    let sample = head $ head liked
     thread <- Th.thread sample
 
     
     liftIO $ do
-        case me of
-            Right _ -> print "Got `aboutMe` successfully. (Means auth is good)"
-            _ -> return () 
         putStrLn "\n"
-        print $ head <$> head comments
+        print $ head $ head comments
         putStrLn "\n"
-        print $ head <$> head submitted
+        print $ head $ head submitted
         putStrLn "\n"
-        print $ head <$> head liked
+        print $ sample
         putStrLn "\n"
         putStrLn $ TR.drawForest $ map ((\x -> case x of
-            Left _ -> "[MORE HIDDEN]"
-            Right x -> x ^. author) <$>) thread
+            Left mc ->  "[" ++ (show $ length $ mc ^. Types.children) ++ " MORE HIDDEN]"
+            Right c -> c ^. author) <$>) thread
+        putStrLn $ (show $ coun thread) ++ " comments total." where
+            coun forest = sum $ map (length . filter (\x -> case x of
+                Right _ -> True
+                _ -> False ) . TR.flatten) forest 
 
 getRight x = case x of
     Left _ -> error "Left in getRight"

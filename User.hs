@@ -30,7 +30,7 @@ import           Types
 import qualified Types
 import           Common
  
-comments :: String -> Popularity -> Age -> Source Reddit (Either String [Comment])
+comments :: String -> Popularity -> Age -> Source Reddit [Comment]
 comments user pop age = 
     let first = do
             req'' <- lift $ join (fmap fillRequest 
@@ -50,7 +50,7 @@ comments user pop age =
     in
         first $= second
 
-submitted :: String -> Popularity -> Age -> Source Reddit (Either String [Link])
+submitted :: String -> Popularity -> Age -> Source Reddit [Link]
 submitted user pop age = 
     let first = do
             req'' <- lift $ join (fmap fillRequest 
@@ -70,23 +70,23 @@ submitted user pop age =
     in
         first $= second
 
-liked :: String -> Source Reddit (Either String [Link])
+liked :: String -> Source Reddit [Link]
 liked user = commonHelperLink url where
     url = printf "http://reddit.com/user/%s/liked.json" user
 
-disliked :: String -> Source Reddit (Either String [Link])
+disliked :: String -> Source Reddit [Link]
 disliked user = commonHelperLink url where
     url = printf "http://reddit.com/user/%s/disliked.json" user
 
-saved_ :: String -> Source Reddit (Either String [Link])
+saved_ :: String -> Source Reddit [Link]
 saved_ user = commonHelperLink url where
     url = printf "http://reddit.com/user/%s/saved.json" user
 
-hidden_ :: String -> Source Reddit (Either String [Link])
+hidden_ :: String -> Source Reddit [Link]
 hidden_ user = commonHelperLink url where
     url = printf "http://reddit.com/user/%s/hidden.json" user
 
-commonHelperLink :: String -> Source Reddit (Either String [Link])
+commonHelperLink :: String -> Source Reddit [Link]
 commonHelperLink url = 
     let first = do
             req'' <- lift $ join (fmap fillRequest (parseUrl url))
@@ -104,7 +104,7 @@ commonHelperLink url =
         first $= second
 
 whoa :: (FromJSON a) => Request -> Query -> String
-     -> IO (Either String [a], Maybe String)
+     -> IO ([a], Maybe String)
 whoa req' baseQuery after' = do
     let req = req' { queryString = newQ } where
             newQ = renderQuery False $  ("after", Just $ BU.fromString after')
@@ -118,7 +118,7 @@ whoa req' baseQuery after' = do
     let rets = case vs of
                     Left err -> Left err
                     Right vs' -> mapM (resultToEither . fromJSON) vs'
-    return (rets, fixUp listing') where
+    return (eitherToException rets, fixUp listing') where
         fixUp (Right l) = case l ^. after of
                             Just a -> l ^. after
                             Nothing -> Nothing
@@ -132,3 +132,4 @@ addAuth req = do
 
 fillRequest :: Request -> Reddit Request
 fillRequest = addAuth . addUAString
+

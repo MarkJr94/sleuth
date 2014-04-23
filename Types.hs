@@ -8,7 +8,7 @@
 
 module Types where
 
-import           Common       
+import           Common       	
 import           Control.Applicative
 import           Control.Lens
 import           Control.Monad.State
@@ -126,6 +126,17 @@ data Comment = Comment {
 $(deriveJSON defaultOptions{fieldLabelModifier = commentFixer} ''Comment)
 
 makeFields ''Comment
+
+data MoreChildren = MoreChildren {
+	  _morechildrenCount :: Int
+	, _morechildrenParentId :: String
+	, _morechildrenChildren :: [String]
+	, _morechildrenName :: String
+	, _morechildrenId :: String
+} deriving (Show, Eq)
+
+$(deriveJSON defaultOptions{fieldLabelModifier = moreChildrenFixer} ''MoreChildren)
+makeFields ''MoreChildren
 
 data Link = Link {
 				  _linkAuthor :: String
