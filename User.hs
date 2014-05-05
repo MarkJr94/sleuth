@@ -123,13 +123,3 @@ whoa req' baseQuery after' = do
                             Just a -> l ^. after
                             Nothing -> Nothing
         fixUp (Left _) = Nothing
-
-
-addAuth :: Request -> Reddit Request
-addAuth req = do
-    cs <- get
-    return req {cookieJar = Just $ cs ^. jar}
-
-fillRequest :: Request -> Reddit Request
-fillRequest = addAuth . addUAString
-

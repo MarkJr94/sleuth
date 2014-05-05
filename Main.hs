@@ -70,6 +70,7 @@ thing = do
     liked <- U.liked "Suppiluliuma_I" $$ CL.take 1
     let sample = head $ head liked
     thread <- Th.thread sample
+    fullThread <- Th.fillThread sample thread
 
     
     liftIO $ do
@@ -80,14 +81,21 @@ thing = do
         putStrLn "\n"
         print $ sample
         putStrLn "\n"
-        putStrLn $ TR.drawForest $ map ((\x -> case x of
-            Left mc ->  "[" ++ (show $ length $ mc ^. Types.children) ++ " MORE HIDDEN]"
-            Right c -> c ^. author) <$>) thread
-        putStrLn $ (show $ coun thread) ++ " comments total." where
-            coun forest = sum $ map (length . filter (\x -> case x of
-                Right _ -> True
-                _ -> False ) . TR.flatten) forest 
+        putStrLn $ Th.drawThread thread
+        putStrLn $ (show $ countForest thread) ++ " comments total."
+
+        putStrLn "\n"
+        putStrLn $ Th.drawThread fullThread
+        putStrLn $ (show $ countForest fullThread) ++ " comments total."
+        --let thing = map ()
 
 getRight x = case x of
     Left _ -> error "Left in getRight"
     Right x -> x
+
+
+
+countForest :: TR.Forest (Either a b) -> Int
+countForest f =  sum $ (F.foldr (\elem acc -> case elem of
+    Left _ -> acc
+    Right _ -> acc + 1) 0 ) <$> f

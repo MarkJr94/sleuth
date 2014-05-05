@@ -16,6 +16,7 @@ import           Data.Aeson
 import           Data.Aeson.TH
 import           Data.ByteString
 import           Data.Char
+import 			 Data.Tree
 import 			 Network.HTTP.Conduit
 
 data Thing = Thing {
@@ -109,6 +110,7 @@ data Comment = Comment {
 				, _commentLinkId :: String
 				, _commentLinkTitle :: Maybe String
 				, _commentLinkUrl :: Maybe String
+				, _commentName :: String
 				, _commentNumReports :: Maybe Int
 				, _commentParentId :: String
 				, _commentSaved :: Bool
@@ -151,6 +153,7 @@ data Link = Link {
 				, _linkLinkFlairText :: Maybe String
 				, _linkMedia :: Maybe Value
 				, _linkMediaEmbed :: Maybe Value
+				, _linkName :: String
 				, _linkNumComments :: Int
 				, _linkOver_18 :: Bool
 				, _linkPermalink :: String
@@ -184,3 +187,13 @@ data RedditState = RedditState {
 makeFields ''RedditState
 
 type Reddit = StateT RedditState IO
+
+type Thread = Forest (Either MoreChildren Comment)
+
+addAuth :: Request -> Reddit Request
+addAuth req = do
+    cs <- get
+    return req {cookieJar = Just $ cs ^. jar}
+
+fillRequest :: Request -> Reddit Request
+fillRequest = addAuth . addUAString
