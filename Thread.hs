@@ -3,7 +3,9 @@
 module Thread (
 	  thread
 	, fillThread
-	, drawThread) where
+	, drawThread
+	, thing
+	, garble) where
 
 import           Control.Applicative
 import 			 Control.Exception
@@ -17,8 +19,9 @@ import Data.Conduit
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Char8 as B8
+import           Data.Either (lefts, rights)
 import qualified Data.HashMap.Lazy as H
-import           Data.List            (find, intercalate, partition)
+import           Data.List            (find, intercalate, partition, sortBy)
 import           Data.Maybe           (fromJust, fromMaybe)
 import qualified Data.Text            as T
 import           Data.Tree
@@ -32,7 +35,7 @@ import           Types
 import qualified Types as Ty
 import           Common
 
---type Thread = 
+--type Thread =
 thread :: Link -> Reddit Thread
 thread link = do
 	req' <- fmap addUAString (parseUrl $ "http://www.reddit.com" ++ (link ^. permalink) ++ ".json")
@@ -48,12 +51,13 @@ thread link = do
 drawThread :: Thread -> String
 drawThread th = drawForest $ map ((\x -> case x of
     Left mc ->  "[" ++ (show $ length $ mc ^. Types.children) ++ " MORE HIDDEN]"
-    Right c -> c ^. author) <$>) th
+    Right c -> c ^. author ++ " " ++ c ^. name) <$>) th
 
 fillThread :: Link -> Thread -> Reddit Thread
 fillThread link f =  do
 	comments <- mapM (getKids link) f
 	let flatComments = concat comments
+	liftIO $ print flatComments
 	return $ map (reparent flatComments) f
 
 func :: Value -> (Either MoreChildren Comment, [Value])
@@ -72,18 +76,18 @@ getKids :: Link
     -> Reddit [Either MoreChildren Comment]
 getKids link (Node (Left mc) ks) = (mangle) where
 	mangle = do
-		v <- moreKids link mc
-		let arr = V.toList <$> (v ^? key "json" . key "data" . key "things" . _Array)
-		let arr' =  (map (\x -> fromJust $ x ^? key "data")) $ fromJust arr
-		let cs = map (getCommentOrKids . Just) arr'
+		cs  <- moreKids link mc
+		--let arr = V.toList <$> (v ^? key "json" . key "data" . key "things" . _Array)
+		--let arr' =  (map (\x -> fromJust $ x ^? key "data")) $ fromJust arr
+		--let cs = map (getCommentOrKids . Just) arr'
 		stuff <- mapM (getKids link) ks
 		return $ cs  ++ (concat stuff)
 getKids _ (Node (Right _) _) = do
 	return []
 
-moreKids :: Link -> MoreChildren -> Reddit Value
+moreKids :: Link -> MoreChildren -> Reddit [Either MoreChildren Comment]
 moreKids link mc = let bodyFunc :: Request -> Request;
-					   bodyFunc = urlEncodedBody 
+					   bodyFunc = urlEncodedBody
 					   	[("link_id", B8.pack $ link ^. name),
 					   		("api_type", "json"),
 					   		("children", B8.pack $ intercalate "," (mc ^. Ty.children))]
@@ -91,11 +95,11 @@ moreKids link mc = let bodyFunc :: Request -> Request;
    		request <- fmap bodyFunc (parseUrl $ "http://www.reddit.com/api/morechildren/.json")
    		req' <- fillRequest request
    		resp <- withManager $ httpLbs request
-   		let body = responseBody resp
-   		--liftIO $ putStrLn $ L8.unpack body
-   		let jsonRes = eitherDecode body
-   		let v = eitherToException jsonRes
-   		return v
+   		let v = responseBody resp
+   		let arr = V.toList <$> (v ^? key "json" . key "data" . key "things" . _Array)
+		let arr' =  (map (\x -> fromJust $ x ^? key "data")) $ fromJust arr
+		let cs = map (getCommentOrKids . Just) arr'
+   		return cs
 
 getCommentOrKids :: Maybe Value -> Either MoreChildren Comment
 getCommentOrKids v = me where
@@ -105,7 +109,7 @@ getCommentOrKids v = me where
 	more' = fmap (parseEither parseJSON) v
 	me = case (com', more') of
 		(Just c, Just m) -> chooser m c
-		(_, _) -> throw $ userError "Some sort of decoding error"	
+		(_, _) -> throw $ userError "Some sort of decoding error"
 
 chooser :: Either a b -> Either c d -> Either b d
 chooser x y = case x of
@@ -114,14 +118,63 @@ chooser x y = case x of
 		Right d' -> Right d'
 		Left c' -> error $ "Neither Either is Right in chooser"
 
-reparent :: [Either MoreChildren Comment] 
+reparent :: [Either MoreChildren Comment]
 	-> Tree (Either MoreChildren Comment)
 	-> Tree (Either MoreChildren Comment)
 reparent cs (Node r@(Right com) ks) = thing where
-	(www, zzz) = partition (\c -> 
+	(www, zzz) = partition (\c ->
 		case c of
 			Left mc -> mc ^. parentId == com ^. name
 			Right c' -> c' ^. parentId == com ^. name) cs
 	www' = map (\x -> Node x []) www
 	thing = Node r (www' ++ (map (reparent zzz) ks))
 reparent _ n@(Node (Left _) _) = n
+
+thing :: Thread -> ([Comment], [MoreChildren])
+thing = splitUp . flatThread
+
+flatThread f = concat $ flatten <$> f
+splitUp coms = (rights coms, lefts coms)
+
+partBy (Right comment) = True
+partBy _ = False
+
+sBy x y = (y ^. ups - y ^. downs) `compare` (x ^. ups - x ^. downs)
+
+getAllKids :: Link -> [MoreChildren] -> Reddit [Either MoreChildren Comment]
+getAllKids link mcs = do
+	vs <- mapM (moreKids link) mcs
+	return $ concat vs
+
+-- x = print wookie
+
+wookie :: Link -> Thread -> Reddit ([Either MoreChildren Comment], [Either MoreChildren Comment])
+wookie link f = do
+	let (oldComments, oldMores) = thing f
+	moreComments <- getAllKids link oldMores
+	let (newMores, newComments) = (lefts moreComments, rights moreComments)
+	let allNewComments = (oldComments) ++ (newComments)
+	let (newRootComments, otherComments) = (cs, os) where
+		(cs, os) = partition (\x -> take 2 (x ^. parentId) == "t3") allNewComments
+	let (newRootMores, otherMores) = partition (\x -> take 2 (x ^. parentId) == "t3") newMores
+	let (newRoots, newOthers) = (map Right newRootComments ++ map Left newRootMores,
+		map Right otherComments ++ map Left otherMores)
+	--let newRootComments =
+	return (newRoots, newOthers)
+
+
+garble link f = do
+	(roots, others) <- wookie link f
+	return $ unfoldForest (helper others) roots where
+		helper os x = (x, filter (\y -> either (^. parentId) (^. parentId) y ==
+			either (^. name) (^. name) x) os)
+
+buildTree root others = unfoldTree (helper others) root where
+	helper os x = (x, filter (\y -> either (^. parentId) (^. parentId) y ==
+			either (^. name) (^. name) x) os)
+
+expandNode link base mc = do
+	newCommentItems <- moreKids link mc
+	return $ buildTree base newCommentItems
+
+--x = print garble

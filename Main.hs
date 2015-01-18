@@ -70,7 +70,7 @@ thing = do
     liked <- U.liked "Suppiluliuma_I" $$ CL.take 1
     let sample = head $ head liked
     thread <- Th.thread sample
-    fullThread <- Th.fillThread sample thread
+    fullThread <- Th.garble sample thread
 
     
     liftIO $ do
@@ -84,10 +84,12 @@ thing = do
         putStrLn $ Th.drawThread thread
         putStrLn $ (show $ countForest thread) ++ " comments total."
 
+        --putStrLn "\n"
+        --print $ (\x -> x ^. ups - x ^. downs) <$> fst (Th.thing thread)
+
         putStrLn "\n"
         putStrLn $ Th.drawThread fullThread
         putStrLn $ (show $ countForest fullThread) ++ " comments total."
-        --let thing = map ()
 
 getRight x = case x of
     Left _ -> error "Left in getRight"
