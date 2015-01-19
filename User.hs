@@ -29,11 +29,11 @@ import           Auth
 import           Types
 import qualified Types
 import           Common
- 
+
 comments :: String -> Popularity -> Age -> Source Reddit [Comment]
-comments user pop age = 
+comments user pop age =
     let first = do
-            req'' <- lift $ join (fmap fillRequest 
+            req'' <- lift $ join (fmap fillRequest
                                     (parseUrl $
                                         printf "http://reddit.com/user/%s/comments.json" user))
             let baseQ = [("sort", Just $ formatPop pop), ("t", Just $ formatAge age)]
@@ -51,10 +51,10 @@ comments user pop age =
         first $= second
 
 submitted :: String -> Popularity -> Age -> Source Reddit [Link]
-submitted user pop age = 
+submitted user pop age =
     let first = do
-            req'' <- lift $ join (fmap fillRequest 
-                                        (parseUrl $ 
+            req'' <- lift $ join (fmap fillRequest
+                                        (parseUrl $
                                             printf "http://reddit.com/user/%s/submitted.json" user))
             let baseQ = [("sort", Just $ formatPop pop), ("t", Just $ formatAge age)]
             let whoa' = whoa req'' baseQ
@@ -86,8 +86,12 @@ hidden_ :: String -> Source Reddit [Link]
 hidden_ user = commonHelperLink url where
     url = printf "http://reddit.com/user/%s/hidden.json" user
 
+-- ============================================================================
+-- =========================== PRIVATE FUNCTIONS BEGIN ========================
+-- ============================================================================
+
 commonHelperLink :: String -> Source Reddit [Link]
-commonHelperLink url = 
+commonHelperLink url =
     let first = do
             req'' <- lift $ join (fmap fillRequest (parseUrl url))
             let whoa' = whoa req'' []

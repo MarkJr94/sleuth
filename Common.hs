@@ -29,12 +29,6 @@ fieldFixer s = if s == "over_18"
             then '_' : toLower c : acc
             else c : acc) ""
 
-genericFixer :: Int -> String -> String
-genericFixer n s = fieldFixer s' where
-    base = drop n s
-    newFirst = toLower $ head base
-    s' = newFirst : tail base
-
 linkFixer :: String -> String
 linkFixer = genericFixer 5
 
@@ -70,3 +64,13 @@ resultToEither x = case x of
 eitherToException :: Either String a -> a
 eitherToException (Right x) = x
 eitherToException (Left err) = throw $ userError err
+
+-- ============================================================================
+-- =========================== PRIVATE FUNCTIONS BEGIN ========================
+-- ============================================================================
+
+genericFixer :: Int -> String -> String
+genericFixer n s = fieldFixer s' where
+    base = drop n s
+    newFirst = toLower $ head base
+    s' = newFirst : tail base

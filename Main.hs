@@ -70,9 +70,9 @@ thing = do
     liked <- U.liked "Suppiluliuma_I" $$ CL.take 1
     let sample = head $ head liked
     thread <- Th.thread sample
-    fullThread <- Th.garble sample thread
+    fullThread <- Th.fillThread sample thread
 
-    
+
     liftIO $ do
         putStrLn "\n"
         print $ head $ head comments

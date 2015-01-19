@@ -8,7 +8,7 @@
 
 module Types where
 
-import           Common       	
+import           Common
 import           Control.Applicative
 import           Control.Lens
 import           Control.Monad.State

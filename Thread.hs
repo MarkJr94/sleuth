@@ -4,8 +4,7 @@ module Thread (
 	  thread
 	, fillThread
 	, drawThread
-	, thing
-	, garble) where
+	, thing) where
 
 import           Control.Applicative
 import 			 Control.Exception
@@ -53,11 +52,18 @@ drawThread th = drawForest $ map ((\x -> case x of
     Right c -> c ^. author ++ " " ++ c ^. name) <$>) th
 
 fillThread :: Link -> Thread -> Reddit Thread
-fillThread link f =  do
-	comments <- mapM (getKids link) f
-	let flatComments = concat comments
-	liftIO $ print flatComments
-	return $ map (reparent flatComments) f
+fillThread link f = do
+	(roots, others) <- wookie link f
+	return $ unfoldForest (helper others) roots where
+		helper os x = (x, filter (\y -> either (^. parentId) (^. parentId) y ==
+			either (^. name) (^. name) x) os)
+
+thing :: Thread -> ([Comment], [MoreChildren])
+thing = splitUp . flatThread
+
+-- ============================================================================
+-- =========================== PRIVATE FUNCTIONS BEGIN ========================
+-- ============================================================================
 
 func :: Value -> (Either MoreChildren Comment, [Value])
 func v = (me, kids) where
@@ -153,28 +159,11 @@ chooser x y = case x of
 		Right d' -> Right d'
 		Left c' -> error $ "Neither Either is Right in chooser"
 
-reparent :: [Either MoreChildren Comment]
-	-> Tree (Either MoreChildren Comment)
-	-> Tree (Either MoreChildren Comment)
-reparent cs (Node r@(Right com) ks) = thing where
-	(www, zzz) = partition (\c ->
-		case c of
-			Left mc -> mc ^. parentId == com ^. name
-			Right c' -> c' ^. parentId == com ^. name) cs
-	www' = map (\x -> Node x []) www
-	thing = Node r (www' ++ (map (reparent zzz) ks))
-reparent _ n@(Node (Left _) _) = n
-
-thing :: Thread -> ([Comment], [MoreChildren])
-thing = splitUp . flatThread
-
 flatThread f = concat $ flatten <$> f
 splitUp coms = (rights coms, lefts coms)
 
 partBy (Right comment) = True
 partBy _ = False
-
-sBy x y = (y ^. ups - y ^. downs) `compare` (x ^. ups - x ^. downs)
 
 getAllKids :: Link -> [MoreChildren] -> Reddit [Either MoreChildren Comment]
 getAllKids link mcs = do
@@ -193,18 +182,3 @@ wookie link f = do
 	let (newRoots, newOthers) = (map Right newRootComments ++ map Left newRootMores,
 		map Right otherComments ++ map Left otherMores)
 	return (nub newRoots, nub newOthers)
-
-
-garble link f = do
-	(roots, others) <- wookie link f
-	return $ unfoldForest (helper others) roots where
-		helper os x = (x, filter (\y -> either (^. parentId) (^. parentId) y ==
-			either (^. name) (^. name) x) os)
-
-buildTree root others = unfoldTree (helper others) root where
-	helper os x = (x, filter (\y -> either (^. parentId) (^. parentId) y ==
-			either (^. name) (^. name) x) os)
-
-expandNode link base mc = do
-	newCommentItems <- moreKids link mc
-	return $ buildTree base newCommentItems
