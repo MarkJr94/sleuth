@@ -21,7 +21,7 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Char8 as B8
 import           Data.Either (lefts, rights)
 import qualified Data.HashMap.Lazy as H
-import           Data.List            (find, intercalate, partition, sortBy)
+import           Data.List            (find, intercalate, partition, sortBy, nub)
 import           Data.Maybe           (fromJust, fromMaybe)
 import qualified Data.Text            as T
 import           Data.Tree
@@ -35,7 +35,6 @@ import           Types
 import qualified Types as Ty
 import           Common
 
---type Thread =
 thread :: Link -> Reddit Thread
 thread link = do
 	req' <- fmap addUAString (parseUrl $ "http://www.reddit.com" ++ (link ^. permalink) ++ ".json")
@@ -77,29 +76,65 @@ getKids :: Link
 getKids link (Node (Left mc) ks) = (mangle) where
 	mangle = do
 		cs  <- moreKids link mc
-		--let arr = V.toList <$> (v ^? key "json" . key "data" . key "things" . _Array)
-		--let arr' =  (map (\x -> fromJust $ x ^? key "data")) $ fromJust arr
-		--let cs = map (getCommentOrKids . Just) arr'
 		stuff <- mapM (getKids link) ks
 		return $ cs  ++ (concat stuff)
 getKids _ (Node (Right _) _) = do
 	return []
 
 moreKids :: Link -> MoreChildren -> Reddit [Either MoreChildren Comment]
-moreKids link mc = let bodyFunc :: Request -> Request;
+moreKids link mc = do
+	mk <- moreKidsReal link mc
+	if (length mk) == 0
+			then continue link mc
+			else return mk
+
+moreKidsReal :: Link -> MoreChildren -> Reddit [Either MoreChildren Comment]
+moreKidsReal link mc = let bodyFunc :: Request -> Request;
 					   bodyFunc = urlEncodedBody
 					   	[("link_id", B8.pack $ link ^. name),
 					   		("api_type", "json"),
 					   		("children", B8.pack $ intercalate "," (mc ^. Ty.children))]
    	in do
-   		request <- fmap bodyFunc (parseUrl $ "http://www.reddit.com/api/morechildren/.json")
+   		request <- fmap bodyFunc (parseUrl $ "http://www.reddit.com/api/morechildren.json")
    		req' <- fillRequest request
    		resp <- withManager $ httpLbs request
    		let v = responseBody resp
+   		let j :: Either String Value
+   		    j = eitherDecode v
    		let arr = V.toList <$> (v ^? key "json" . key "data" . key "things" . _Array)
 		let arr' =  (map (\x -> fromJust $ x ^? key "data")) $ fromJust arr
 		let cs = map (getCommentOrKids . Just) arr'
    		return cs
+
+continue :: Link -> MoreChildren -> Reddit [Either MoreChildren Comment]
+continue link mc = let bodyFunc :: Request -> Request;
+					   bodyFunc = urlEncodedBody
+					   	[("link_id", B8.pack $ link ^. name),
+					   		("api_type", "json"),
+					   		("children", B8.pack $ intercalate "," (mc ^. Ty.children))]
+   	in do
+   		request <- (parseUrl $ link ^. url ++ (drop 3 (mc ^. parentId)) ++ ".json")
+   		req' <- fillRequest request
+   		resp <- withManager $ httpLbs request
+   		let v = responseBody resp
+   		let j :: Either String Value
+   		    j = eitherDecode v
+		let tq = j ^? _Right . _Array . ix 1 . key "data" . key "children" . _Array . ix 0
+		let tq' = fromMaybe (error "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA") tq
+		let cs = freeChildren tq'
+   		return cs
+
+freeChildren :: Value -> [Either MoreChildren Comment]
+freeChildren j = me : kids where
+	v = j ^? key "data"
+	kids' = do
+		l <- j ^? key "data" . key "replies" . key "data" . key "children" . _Array
+		Just $ V.toList l
+	me = getCommentOrKids v
+	kids'' = case kids' of
+			Just k -> k
+			Nothing -> []
+	kids = concatMap freeChildren kids''
 
 getCommentOrKids :: Maybe Value -> Either MoreChildren Comment
 getCommentOrKids v = me where
@@ -146,8 +181,6 @@ getAllKids link mcs = do
 	vs <- mapM (moreKids link) mcs
 	return $ concat vs
 
--- x = print wookie
-
 wookie :: Link -> Thread -> Reddit ([Either MoreChildren Comment], [Either MoreChildren Comment])
 wookie link f = do
 	let (oldComments, oldMores) = thing f
@@ -159,8 +192,7 @@ wookie link f = do
 	let (newRootMores, otherMores) = partition (\x -> take 2 (x ^. parentId) == "t3") newMores
 	let (newRoots, newOthers) = (map Right newRootComments ++ map Left newRootMores,
 		map Right otherComments ++ map Left otherMores)
-	--let newRootComments =
-	return (newRoots, newOthers)
+	return (nub newRoots, nub newOthers)
 
 
 garble link f = do
@@ -176,5 +208,3 @@ buildTree root others = unfoldTree (helper others) root where
 expandNode link base mc = do
 	newCommentItems <- moreKids link mc
 	return $ buildTree base newCommentItems
-
---x = print garble
